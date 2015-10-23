@@ -29,6 +29,7 @@
 #include "video.h"
 #include "msi.h"
 #include "rtp.h"
+#include "call.h"
 
 #include "../toxcore/logger.h"
 #include "../toxcore/network.h"
@@ -37,9 +38,9 @@
 #define VIDEO_DECODE_BUFFER_SIZE 20
 
 
-bool create_video_encoder (vpx_codec_ctx_t *dest, int32_t bit_rate);
+bool create_video_encoder (vpx_codec_ctx_t *dest, int32_t bit_rate, uint16_t max_w, uint16_t max_h);
 
-VCSession *vc_new(ToxAV *av, uint32_t friend_number, toxav_video_receive_frame_cb *cb, void *cb_data)
+VCSession *vc_new(ToxAV *av, const ToxAVCall *call, toxav_video_receive_frame_cb *cb, void *cb_data)
 {
     VCSession *vc = calloc(sizeof(VCSession), 1);
 
@@ -64,7 +65,7 @@ VCSession *vc_new(ToxAV *av, uint32_t friend_number, toxav_video_receive_frame_c
         goto BASE_CLEANUP;
     }
 
-    if (!create_video_encoder(vc->encoder, 500000)) {
+    if (!create_video_encoder(vc->encoder, 500000, call->video_max_h, call->video_max_w)) {
         vpx_codec_destroy(vc->decoder);
         goto BASE_CLEANUP;
     }
@@ -73,7 +74,7 @@ VCSession *vc_new(ToxAV *av, uint32_t friend_number, toxav_video_receive_frame_c
     vc->lcfd = 60;
     vc->vcb.first = cb;
     vc->vcb.second = cb_data;
-    vc->friend_number = friend_number;
+    vc->friend_number = call->friend_number;
     vc->av = av;
 
     return vc;
@@ -201,7 +202,7 @@ int vc_reconfigure_encoder(vpx_codec_ctx_t *vccdc, uint32_t bit_rate, uint16_t w
 }
 
 
-bool create_video_encoder (vpx_codec_ctx_t *dest, int32_t bit_rate)
+bool create_video_encoder (vpx_codec_ctx_t *dest, int32_t bit_rate, uint16_t max_w, uint16_t max_h)
 {
     assert(dest);
 
@@ -214,8 +215,8 @@ bool create_video_encoder (vpx_codec_ctx_t *dest, int32_t bit_rate)
     }
 
     cfg.rc_target_bitrate = bit_rate;
-    cfg.g_w = 800;
-    cfg.g_h = 600;
+    cfg.g_w = max_w;
+    cfg.g_h = max_h;
     cfg.g_pass = VPX_RC_ONE_PASS;
     /* FIXME If we set error resilience the app will crash due to bug in vp8.
              Perhaps vp9 has solved it?*/

@@ -25,6 +25,7 @@
 
 #include "msi.h"
 #include "rtp.h"
+#include "call.h"
 
 #include "../toxcore/Messenger.h"
 #include "../toxcore/logger.h"
@@ -35,33 +36,6 @@
 #include <string.h>
 
 #define MAX_ENCODE_TIME_US ((1000 / 24) * 1000)
-
-typedef struct ToxAVCall_s {
-    ToxAV *av;
-
-    pthread_mutex_t mutex_audio[1];
-    PAIR(RTPSession *, ACSession *) audio;
-
-    pthread_mutex_t mutex_video[1];
-    PAIR(RTPSession *, VCSession *) video;
-
-    BWControler *bwc;
-
-    bool active;
-    MSICall *msi_call;
-    uint32_t friend_number;
-
-    uint32_t audio_bit_rate; /* Sending audio bit rate */
-    uint32_t video_bit_rate; /* Sending video bit rate */
-
-    /** Required for monitoring changes in states */
-    uint8_t previous_self_capabilities;
-
-    pthread_mutex_t mutex[1];
-
-    struct ToxAVCall_s *prev;
-    struct ToxAVCall_s *next;
-} ToxAVCall;
 
 struct ToxAV {
     Messenger *m;
@@ -274,7 +248,7 @@ void toxav_iterate(ToxAV *av)
     }
 }
 bool toxav_call(ToxAV *av, uint32_t friend_number, uint32_t audio_bit_rate, uint32_t video_bit_rate,
-                TOXAV_ERR_CALL *error)
+                uint16_t max_width, uint16_t max_height, TOXAV_ERR_CALL *error)
 {
     TOXAV_ERR_CALL rc = TOXAV_ERR_CALL_OK;
     
@@ -295,6 +269,8 @@ bool toxav_call(ToxAV *av, uint32_t friend_number, uint32_t audio_bit_rate, uint
 
     call->audio_bit_rate = audio_bit_rate;
     call->video_bit_rate = video_bit_rate;
+    call->video_max_w = max_width;
+    call->video_max_h = max_height;
 
     call->previous_self_capabilities = msi_CapRAudio | msi_CapRVideo;
 
@@ -324,8 +300,9 @@ void toxav_callback_call(ToxAV *av, toxav_call_cb *function, void *user_data)
     av->ccb.second = user_data;
     pthread_mutex_unlock(av->mutex);
 }
-bool toxav_answer(ToxAV *av, uint32_t friend_number, uint32_t audio_bit_rate, uint32_t video_bit_rate,
-                  TOXAV_ERR_ANSWER *error)
+bool toxav_answer(ToxAV *av, uint32_t friend_number,
+                  uint32_t audio_bit_rate, uint32_t video_bit_rate,
+                  uint16_t max_width, uint16_t max_height, TOXAV_ERR_ANSWER *error)
 {
     pthread_mutex_lock(av->mutex);
 
@@ -357,6 +334,8 @@ bool toxav_answer(ToxAV *av, uint32_t friend_number, uint32_t audio_bit_rate, ui
 
     call->audio_bit_rate = audio_bit_rate;
     call->video_bit_rate = video_bit_rate;
+    call->video_max_w = max_width;
+    call->video_max_h = max_height;
 
     call->previous_self_capabilities = msi_CapRAudio | msi_CapRVideo;
 
@@ -1177,7 +1156,7 @@ bool call_prepare_transmission(ToxAVCall *call)
         }
     }
     { /* Prepare video */
-        call->video.second = vc_new(av, call->friend_number, av->vcb.first, av->vcb.second);
+        call->video.second = vc_new(av, call, av->vcb.first, av->vcb.second);
 
         if (!call->video.second) {
             LOGGER_ERROR("Failed to create video codec session");

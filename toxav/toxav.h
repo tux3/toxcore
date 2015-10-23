@@ -278,9 +278,12 @@ typedef enum TOXAV_ERR_CALL {
  * audio sending.
  * @param video_bit_rate Video bit rate in Kb/sec. Set this to 0 to disable
  * video sending.
+ * @param max_width Maximum width of the frames in pixels.
+ * @param max_height Maximum height of the frames in pixels.
  */
-bool toxav_call(ToxAV *toxAV, uint32_t friend_number, uint32_t audio_bit_rate,
-                uint32_t video_bit_rate, TOXAV_ERR_CALL *error);
+bool toxav_call(ToxAV *toxAV, uint32_t friend_number, 
+                uint32_t audio_bit_rate, uint32_t video_bit_rate, 
+                uint16_t max_width, uint16_t max_height, TOXAV_ERR_CALL *error);
 
 /**
  * The function type for the call callback.
@@ -340,8 +343,12 @@ typedef enum TOXAV_ERR_ANSWER {
  * audio sending.
  * @param video_bit_rate Video bit rate in Kb/sec. Set this to 0 to disable
  * video sending.
+ * @param max_width Maximum width of the frames in pixels.
+ * @param max_height Maximum height of the frames in pixels.
  */
-bool toxav_answer(ToxAV *toxAV, uint32_t friend_number, uint32_t audio_bit_rate, uint32_t video_bit_rate, TOXAV_ERR_ANSWER *error);
+bool toxav_answer(ToxAV *toxAV, uint32_t friend_number,
+                  uint32_t audio_bit_rate, uint32_t video_bit_rate,
+                  uint16_t max_width, uint16_t max_height, TOXAV_ERR_ANSWER *error);
 
 
 /*******************************************************************************
